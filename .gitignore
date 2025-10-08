@@ -1,6 +1,7 @@
 # === Project secrets & local state ===
 .env
 n8n/
+!docs/n8n/**
 postgres/data/
 exports/
 
