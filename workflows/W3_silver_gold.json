@@ -1,0 +1,34 @@
+{
+  "name": "SGS Silver -> Gold (UPSERT only)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ManualTrigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-460, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- ============ BUILD GOLD (INSERT/UPSERT) ============\nWITH s AS (\n  SELECT series_id, ref_date, value_num\n  FROM   bcb_silver.series_daily\n),\n-- Datas de referência (união de todas as séries)\ndates AS (\n  SELECT DISTINCT ref_date FROM s\n),\nselic_meta AS (\n  SELECT ref_date, value_num AS selic_meta_aa FROM s WHERE series_id = 432\n),\nselic_diaria AS (\n  SELECT ref_date, value_num AS selic_diaria_ad FROM s WHERE series_id = 11\n),\nusd AS (\n  SELECT ref_date, value_num AS usd_brl_ptax FROM s WHERE series_id = 1\n),\nipca_mm AS (\n  SELECT ref_date, value_num AS ipca_mm FROM s WHERE series_id = 433\n),\n-- Rolling 12 meses do IPCA (soma das variações mensais)\nipca_12m AS (\n  SELECT i.ref_date,\n         SUM(i.ipca_mm) OVER (\n           ORDER BY i.ref_date\n           ROWS BETWEEN 11 PRECEDING AND CURRENT ROW\n         ) AS ipca_12m\n  FROM ipca_mm i\n)\n, final AS (\n  SELECT d.ref_date,\n         sm.selic_meta_aa,\n         sd.selic_diaria_ad,\n         u.usd_brl_ptax,\n         i.ipca_mm,\n         i12.ipca_12m\n  FROM dates d\n  LEFT JOIN selic_meta   sm  ON sm.ref_date = d.ref_date\n  LEFT JOIN selic_diaria sd  ON sd.ref_date = d.ref_date\n  LEFT JOIN usd          u   ON u.ref_date  = d.ref_date\n  LEFT JOIN ipca_mm      i   ON i.ref_date  = d.ref_date\n  LEFT JOIN ipca_12m     i12 ON i12.ref_date= d.ref_date\n)\nINSERT INTO bcb_gold.dm_macro_daily\n  (ref_date, selic_meta_aa, selic_diaria_ad, usd_brl_ptax, ipca_mm, ipca_12m)\nSELECT ref_date, selic_meta_aa, selic_diaria_ad, usd_brl_ptax, ipca_mm, ipca_12m\nFROM final\nWHERE ref_date IS NOT NULL\nON CONFLICT (ref_date)\nDO UPDATE SET\n  selic_meta_aa   = EXCLUDED.selic_meta_aa,\n  selic_diaria_ad = EXCLUDED.selic_diaria_ad,\n  usd_brl_ptax    = EXCLUDED.usd_brl_ptax,\n  ipca_mm         = EXCLUDED.ipca_mm,\n  ipca_12m        = EXCLUDED.ipca_12m,\n  load_ts         = NOW();"
+      },
+      "id": "BuildGold",
+      "name": "Build Gold (UPSERT)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [-180, 0],
+      "credentials": { "postgres": { "id": null, "name": "pg-bcb" } }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{ "node": "Build Gold (UPSERT)", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "timezone": "America/Sao_Paulo" },
+  "active": false,
+  "meta": { "instanceId": "imported" },
+  "id": "sgs_silver_to_gold_upsert_only_v1"
+}

@@ -1,0 +1,34 @@
+# === Project secrets & local state ===
+.env
+n8n/
+postgres/data/
+exports/
+
+# === Generated / exports ===
+*.csv
+*.tsv
+*.xlsx
+backup_bcb.sql
+
+# === Logs ===
+*.log
+
+# === Editors / IDEs ===
+.vscode/
+.idea/
+
+# === Python (if you add scripts) ===
+__pycache__/
+*.py[cod]
+*.egg-info/
+.build/
+
+# === Node (if you add frontend/admin) ===
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === OS files ===
+.DS_Store
+Thumbs.db

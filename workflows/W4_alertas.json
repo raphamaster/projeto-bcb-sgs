@@ -1,0 +1,67 @@
+{
+  "name": "SGS Gold -> Alertas (USD spike + Selic policy change)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ManualTrigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-520, 0]
+    },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- ALERTA 1: Spike USD/BRL (|Δd/d| >= 2.5%)\nWITH c AS (\n  SELECT ref_date,\n         usd_brl_ptax,\n         (usd_brl_ptax / LAG(usd_brl_ptax) OVER (ORDER BY ref_date) - 1) * 100 AS pct_change\n  FROM bcb_gold.dm_macro_daily\n  WHERE usd_brl_ptax IS NOT NULL\n  ORDER BY ref_date\n), last_row AS (\n  SELECT * FROM c ORDER BY ref_date DESC LIMIT 1\n)\nINSERT INTO bcb_gold.dm_events (ref_date, series_id, event_type, event_value, zscore, details)\nSELECT ref_date,\n       1 AS series_id,\n       CASE WHEN pct_change >= 2.5 THEN 'SPIKE_UP' ELSE 'SPIKE_DOWN' END AS event_type,\n       usd_brl_ptax AS event_value,\n       pct_change AS zscore,\n       jsonb_build_object('pct_change', pct_change)\nFROM last_row\nWHERE ABS(pct_change) >= 2.5\nON CONFLICT DO NOTHING;"
+      },
+      "id": "AlertUSDSpike",
+      "name": "Alert: USD spike",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [-260, 0],
+      "credentials": { "postgres": { "id": null, "name": "pg-bcb" } }
+    },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- ALERTA 2: Mudança na Selic Meta (série 432)\nWITH c AS (\n  SELECT ref_date,\n         selic_meta_aa,\n         LAG(selic_meta_aa) OVER (ORDER BY ref_date) AS prev\n  FROM bcb_gold.dm_macro_daily\n  WHERE selic_meta_aa IS NOT NULL\n  ORDER BY ref_date\n), last_row AS (\n  SELECT * FROM c ORDER BY ref_date DESC LIMIT 1\n)\nINSERT INTO bcb_gold.dm_events (ref_date, series_id, event_type, event_value, zscore, details)\nSELECT ref_date,\n       432 AS series_id,\n       'POLICY_CHANGE' AS event_type,\n       selic_meta_aa AS event_value,\n       NULL::numeric AS zscore,\n       jsonb_build_object('previous', prev, 'current', selic_meta_aa)\nFROM last_row\nWHERE prev IS NOT NULL AND selic_meta_aa <> prev\nON CONFLICT DO NOTHING;"
+      },
+      "id": "AlertSelicChange",
+      "name": "Alert: Selic policy change",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "credentials": { "postgres": { "id": null, "name": "pg-bcb" } }
+    },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT ref_date, series_id, event_type, event_value, zscore, details, created_at\nFROM bcb_gold.dm_events\nORDER BY created_at DESC\nLIMIT 20;"
+      },
+      "id": "PreviewEvents",
+      "name": "Preview last events",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [260, 0],
+      "credentials": { "postgres": { "id": null, "name": "pg-bcb" } }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{ "node": "Alert: USD spike", "type": "main", "index": 0 }]]
+    },
+    "Alert: USD spike": {
+      "main": [[{ "node": "Alert: Selic policy change", "type": "main", "index": 0 }]]
+    },
+    "Alert: Selic policy change": {
+      "main": [[{ "node": "Preview last events", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "timezone": "America/Sao_Paulo" },
+  "active": false,
+  "meta": { "instanceId": "imported" },
+  "id": "sgs_gold_alerts_v1"
+}

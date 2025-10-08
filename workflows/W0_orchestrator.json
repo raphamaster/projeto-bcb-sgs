@@ -1,0 +1,97 @@
+{
+  "name": "Orquestrador SGS (W1→W2→W3→W4)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ManualTrigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-560, -20]
+    },
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            { "hour": 7, "minute": 30 }
+          ]
+        }
+      },
+      "id": "Cron",
+      "name": "Cron (07:30 BRT)",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [-560, 160]
+    },
+
+    {
+      "parameters": {
+        "options": {
+          "waitForCompletion": true
+        }
+      },
+      "id": "RunW1",
+      "name": "Run W1: Ingest",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [-260, 70]
+    },
+    {
+      "parameters": {
+        "options": {
+          "waitForCompletion": true
+        }
+      },
+      "id": "RunW2",
+      "name": "Run W2: Bronze → Silver",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [-20, 70]
+    },
+    {
+      "parameters": {
+        "options": {
+          "waitForCompletion": true
+        }
+      },
+      "id": "RunW3",
+      "name": "Run W3: Silver → Gold",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [220, 70]
+    },
+    {
+      "parameters": {
+        "options": {
+          "waitForCompletion": true
+        }
+      },
+      "id": "RunW4",
+      "name": "Run W4: Alertas (DB)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [460, 70]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{ "node": "Run W1: Ingest", "type": "main", "index": 0 }]]
+    },
+    "Cron (07:30 BRT)": {
+      "main": [[{ "node": "Run W1: Ingest", "type": "main", "index": 0 }]]
+    },
+    "Run W1: Ingest": {
+      "main": [[{ "node": "Run W2: Bronze → Silver", "type": "main", "index": 0 }]]
+    },
+    "Run W2: Bronze → Silver": {
+      "main": [[{ "node": "Run W3: Silver → Gold", "type": "main", "index": 0 }]]
+    },
+    "Run W3: Silver → Gold": {
+      "main": [[{ "node": "Run W4: Alertas (DB)", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "timezone": "America/Sao_Paulo" },
+  "active": false,
+  "meta": { "instanceId": "imported" },
+  "id": "sgs_orchestrator_v1"
+}

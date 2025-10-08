@@ -1,0 +1,52 @@
+{
+  "name": "SGS Bronze -> Silver (n8n 1.64 — incremental, JS)",
+  "nodes": [
+    { "parameters": {}, "id": "ManualTrigger", "name": "Manual Trigger", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [-600, 0] },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Pega linhas da BRONZE que ainda não existem na SILVER (anti-join)\nSELECT br.series_id,\n       br.ref_date,\n       br.value_raw,\n       sc.series_name,\n       sc.unit,\n       br.source\nFROM   bcb_bronze.series_raw br\nJOIN   etl.series_catalog sc ON sc.series_id = br.series_id\nLEFT JOIN bcb_silver.series_daily sd\n       ON sd.series_id = br.series_id AND sd.ref_date = br.ref_date\nWHERE  sd.series_id IS NULL\nORDER BY br.ref_date;"
+      },
+      "id": "GetBronzeNew",
+      "name": "Get Bronze New",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [-340, 0],
+      "credentials": { "postgres": { "id": null, "name": "pg-bcb" } }
+    },
+
+    {
+      "parameters": {
+        "functionCode": "// Converte value_raw (pt-BR) para number e padroniza payload para a silver\n// Descarta itens sem valor numérico\nfunction toNumberBR(s) {\n  if (s === null || s === undefined) return null;\n  // remove espaços e troca vírgula por ponto\n  const t = String(s).trim().replace(/\\./g, '').replace(',', '.');\n  // permite decimais com sinal\n  const num = Number(t);\n  return Number.isFinite(num) ? num : null;\n}\n\nreturn items\n  .map(it => {\n    const j = it.json;\n    const v = toNumberBR(j.value_raw);\n    if (v === null) return null; // descarta linhas inválidas\n    return {\n      json: {\n        series_id: j.series_id,\n        series_name: j.series_name,\n        ref_date: j.ref_date,      // já está YYYY-MM-DD vindo do bronze\n        value_num: v,\n        unit: j.unit || '',\n        source: j.source || 'BCB/SGS'\n      }\n    };\n  })\n  .filter(Boolean);"
+      },
+      "id": "MapToSilver",
+      "name": "Map to Silver (Function JS)",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [-80, 0]
+    },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO bcb_silver.series_daily\n  (series_id, series_name, ref_date, value_num, unit, source)\nVALUES\n  ({{ $json.series_id }}, '{{$json.series_name}}', '{{$json.ref_date}}', {{$json.value_num}}, '{{$json.unit}}', '{{$json.source}}')\nON CONFLICT (series_id, ref_date)\nDO UPDATE SET\n  series_name = EXCLUDED.series_name,\n  value_num   = EXCLUDED.value_num,\n  unit        = EXCLUDED.unit,\n  source      = EXCLUDED.source,\n  load_ts     = NOW();"
+      },
+      "id": "UpsertSilver",
+      "name": "Upsert Silver",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [180, 0],
+      "credentials": { "postgres": { "id": null, "name": "pg-bcb" } }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": { "main": [[{ "node": "Get Bronze New", "type": "main", "index": 0 }]] },
+    "Get Bronze New":   { "main": [[{ "node": "Map to Silver (Function JS)", "type": "main", "index": 0 }]] },
+    "Map to Silver (Function JS)": { "main": [[{ "node": "Upsert Silver", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "timezone": "America/Sao_Paulo" },
+  "active": false,
+  "meta": { "instanceId": "imported" },
+  "id": "sgs_bronze_to_silver_v1"
+}

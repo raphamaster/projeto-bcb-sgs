@@ -1,0 +1,182 @@
+{
+  "name": "SGS Ingest -> Bronze (Code nodes, fixed fan-out)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ManualTrigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-920, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT series_id, series_name, source_url, frequency\nFROM etl.series_catalog\nWHERE active = TRUE\nORDER BY series_id;"
+      },
+      "id": "GetActiveSeries",
+      "name": "Get Active Series",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [-680, 0],
+      "credentials": {
+        "postgres": {
+          "id": null,
+          "name": "pg-bcb"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "javascript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Fan Out Series (Code JS)\n// Garante 1 item por série, independente de como o Postgres retornou\nconst in0 = $input.all();\nlet rows = [];\nif (in0.length === 1) {\n  const j = in0[0].json;\n  if (Array.isArray(j)) rows = j;\n  else if (Array.isArray(j.rows)) rows = j.rows;\n  else if (Array.isArray(j.data)) rows = j.data;\n}\nif (rows.length === 0) rows = in0.map(it => it.json);\nconst out = rows\n  .map(r => ({\n    series_id:   r.series_id   ?? r.SERIES_ID,\n    series_name: r.series_name ?? r.SERIES_NAME,\n    source_url:  r.source_url  ?? r.SOURCE_URL,\n    frequency:   r.frequency   ?? r.FREQUENCY ?? 'daily'\n  }))\n  .filter(r => r.series_id && r.source_url);\nreturn out.map(r => ({ json: r }));"
+      },
+      "id": "FanOutSeries",
+      "name": "Fan Out Series",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-440, 0]
+    },
+    {
+      "parameters": {
+        "language": "javascript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Build Windows (Code JS) — 1 janela por série (últimos 365 dias)\nconst pad = n => String(n).padStart(2, '0');\nconst fmt = d => `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;\nconst end = new Date();\nconst start = new Date();\nstart.setDate(start.getDate() - 365); // troque para 30 na rotina diária\nconst seriesList = $input.all();\nreturn seriesList.map(({ json: s }) => ({\n  json: {\n    series_id: s.series_id,\n    series_name: s.series_name,\n    source_url: s.source_url,\n    frequency: s.frequency || 'daily',\n    window: { start: fmt(start), end: fmt(end) }\n  }\n}));"
+      },
+      "id": "BuildWindowsCode",
+      "name": "Build Windows (Code)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-200, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$json.source_url}}?formato=json&dataInicial={{$json.window.start}}&dataFinal={{$json.window.end}}",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "options": {
+          "splitIntoItems": false
+        }
+      },
+      "id": "HTTP_SGS",
+      "name": "HTTP SGS (no-split)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [40, 0]
+    },
+    {
+      "parameters": {
+        "language": "javascript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Map to Bronze (Code JS) — usa 2 inputs\n// Input 0: HTTP (1 item por série, json = ARRAY de {data, valor})\n// Input 1: Windows (1 item por série na mesma ordem)\nfunction toIso(br) {\n  const [d, m, y] = String(br || '').split('/');\n  return `${y}-${m?.padStart(2,'0')}-${d?.padStart(2,'0')}`;\n}\nconst httpItems = $input.all(0);\nconst winItems  = $input.all(1);\nconst out = [];\nfor (let i = 0; i < httpItems.length; i++) {\n  const arr = httpItems[i]?.json;\n  const win = winItems[i]?.json;\n  if (!win || !Array.isArray(arr) || arr.length === 0) continue;\n  for (const r of arr) {\n    if (!r || !r.data || r.valor === undefined) continue;\n    out.push({\n      json: {\n        series_id: win.series_id,\n        ref_date: toIso(r.data),\n        value_raw: String(r.valor),\n        payload_json: { data: r.data, valor: r.valor },\n        source: 'BCB/SGS'\n      }\n    });\n  }\n}\nreturn out;"
+      },
+      "id": "MapToBronzeCode",
+      "name": "Map to Bronze (Code)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [300, -40]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO bcb_bronze.series_raw\n  (series_id, ref_date, value_raw, payload_json, source)\nVALUES\n  ({{ $json.series_id }}, '{{$json.ref_date}}', '{{$json.value_raw}}', '{{JSON.stringify($json.payload_json)}}', '{{$json.source}}')\nON CONFLICT (series_id, ref_date)\nDO UPDATE SET\n  value_raw   = EXCLUDED.value_raw,\n  payload_json= EXCLUDED.payload_json,\n  ingested_at = NOW();"
+      },
+      "id": "UpsertBronze",
+      "name": "Upsert Bronze",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [560, -40],
+      "credentials": {
+        "postgres": {
+          "id": null,
+          "name": "pg-bcb"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Active Series",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Active Series": {
+      "main": [
+        [
+          {
+            "node": "Fan Out Series",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fan Out Series": {
+      "main": [
+        [
+          {
+            "node": "Build Windows (Code)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Windows (Code)": {
+      "main": [
+        [
+          {
+            "node": "HTTP SGS (no-split)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Map to Bronze (Code)",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "HTTP SGS (no-split)": {
+      "main": [
+        [
+          {
+            "node": "Map to Bronze (Code)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map to Bronze (Code)": {
+      "main": [
+        [
+          {
+            "node": "Upsert Bronze",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "timezone": "America/Sao_Paulo"
+  },
+  "active": false,
+  "meta": {
+    "instanceId": "imported"
+  },
+  "id": "sgs_ingest_bronze_code_fanout_v1"
+}
