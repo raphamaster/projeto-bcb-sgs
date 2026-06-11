@@ -1,0 +1,113 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1F3A"/>
+      <stop offset="1" stop-color="#102A4C"/>
+    </linearGradient>
+    <linearGradient id="mintline" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3DDC97"/>
+      <stop offset="1" stop-color="#2BB67C"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.85" cy="0.2" r="0.8">
+      <stop offset="0" stop-color="#3DDC97" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#3DDC97" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- fundo -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- grade sutil -->
+  <g stroke="#FFFFFF" stroke-opacity="0.03">
+    <path d="M0 105H1200 M0 210H1200 M0 315H1200 M0 420H1200 M0 525H1200"/>
+    <path d="M150 0V630 M300 0V630 M450 0V630 M600 0V630 M750 0V630 M900 0V630 M1050 0V630"/>
+  </g>
+
+  <!-- barra mint topo -->
+  <rect x="0" y="0" width="1200" height="6" fill="url(#mintline)"/>
+
+  <!-- etiqueta projeto -->
+  <rect x="80" y="78" width="218" height="36" rx="18" fill="none" stroke="#3DDC97" stroke-width="1.5"/>
+  <text x="189" y="102" font-family="Helvetica, Arial, sans-serif" font-size="16" letter-spacing="3" fill="#3DDC97" text-anchor="middle">DATA ENGINEERING</text>
+
+  <!-- título -->
+  <text x="80" y="195" font-family="Helvetica, Arial, sans-serif" font-weight="bold" font-size="76" fill="#FFFFFF">Pipeline Macro</text>
+  <text x="80" y="248" font-family="Helvetica, Arial, sans-serif" font-size="30" fill="#BFD4E6">BCB/SGS&#160;&#160;&#8594;&#160;&#160;PostgreSQL&#160;&#160;&#8594;&#160;&#160;Power BI</text>
+
+  <!-- diagrama medallion -->
+  <g font-family="Helvetica, Arial, sans-serif">
+    <!-- linha conectora -->
+    <line x1="150" y1="392" x2="1050" y2="392" stroke="#22456E" stroke-width="3"/>
+
+    <!-- nó API -->
+    <g>
+      <circle cx="150" cy="392" r="44" fill="#16304F" stroke="#3DDC97" stroke-width="2.5"/>
+      <text x="150" y="386" font-size="15" font-weight="bold" fill="#FFFFFF" text-anchor="middle">API</text>
+      <text x="150" y="406" font-size="13" fill="#BFD4E6" text-anchor="middle">SGS</text>
+      <text x="150" y="466" font-size="15" fill="#8FA8BF" text-anchor="middle">Banco Central</text>
+    </g>
+
+    <!-- seta 1 -->
+    <polygon points="262,392 248,384 248,400" fill="#3DDC97"/>
+
+    <!-- nó Bronze -->
+    <g>
+      <circle cx="375" cy="392" r="44" fill="#3E2C1C" stroke="#CD7F32" stroke-width="2.5"/>
+      <text x="375" y="398" font-size="16" font-weight="bold" fill="#E8A865" text-anchor="middle">Bronze</text>
+      <text x="375" y="466" font-size="15" fill="#8FA8BF" text-anchor="middle">Ingest&#227;o raw</text>
+    </g>
+
+    <!-- seta 2 -->
+    <polygon points="487,392 473,384 473,400" fill="#3DDC97"/>
+
+    <!-- nó Silver -->
+    <g>
+      <circle cx="600" cy="392" r="44" fill="#2A3540" stroke="#C0C8D0" stroke-width="2.5"/>
+      <text x="600" y="398" font-size="16" font-weight="bold" fill="#DDE4EA" text-anchor="middle">Silver</text>
+      <text x="600" y="466" font-size="15" fill="#8FA8BF" text-anchor="middle">Limpeza &amp; tipagem</text>
+    </g>
+
+    <!-- seta 3 -->
+    <polygon points="712,392 698,384 698,400" fill="#3DDC97"/>
+
+    <!-- nó Gold -->
+    <g>
+      <circle cx="825" cy="392" r="44" fill="#3D3416" stroke="#E6C24A" stroke-width="2.5"/>
+      <text x="825" y="398" font-size="16" font-weight="bold" fill="#F2D878" text-anchor="middle">Gold</text>
+      <text x="825" y="466" font-size="15" fill="#8FA8BF" text-anchor="middle">Anal&#237;tico</text>
+    </g>
+
+    <!-- seta 4 -->
+    <polygon points="937,392 923,384 923,400" fill="#3DDC97"/>
+
+    <!-- nó BI -->
+    <g>
+      <circle cx="1050" cy="392" r="44" fill="#16304F" stroke="#3DDC97" stroke-width="2.5"/>
+      <!-- mini barras de gráfico -->
+      <rect x="1032" y="396" width="9" height="16" rx="1.5" fill="#3DDC97"/>
+      <rect x="1045" y="384" width="9" height="28" rx="1.5" fill="#3DDC97"/>
+      <rect x="1058" y="374" width="9" height="38" rx="1.5" fill="#3DDC97"/>
+      <text x="1050" y="466" font-size="15" fill="#8FA8BF" text-anchor="middle">Power BI</text>
+    </g>
+  </g>
+
+  <!-- badges de tecnologia -->
+  <g font-family="Helvetica, Arial, sans-serif" font-size="15">
+    <rect x="80" y="520" width="74" height="32" rx="16" fill="#16304F" stroke="#3DDC97" stroke-opacity="0.5"/>
+    <text x="117" y="541" fill="#BFD4E6" text-anchor="middle">n8n</text>
+    <rect x="166" y="520" width="116" height="32" rx="16" fill="#16304F" stroke="#3DDC97" stroke-opacity="0.5"/>
+    <text x="224" y="541" fill="#BFD4E6" text-anchor="middle">PostgreSQL</text>
+    <rect x="294" y="520" width="92" height="32" rx="16" fill="#16304F" stroke="#3DDC97" stroke-opacity="0.5"/>
+    <text x="340" y="541" fill="#BFD4E6" text-anchor="middle">Docker</text>
+    <rect x="398" y="520" width="148" height="32" rx="16" fill="#16304F" stroke="#3DDC97" stroke-opacity="0.5"/>
+    <text x="472" y="541" fill="#BFD4E6" text-anchor="middle">Cron 07:30 BRT</text>
+  </g>
+
+  <!-- assinatura -->
+  <text x="1120" y="541" font-family="Helvetica, Arial, sans-serif" font-size="17" fill="#3DDC97" text-anchor="end" font-weight="bold">raphaelfranco.com</text>
+  <text x="1120" y="565" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#8FA8BF" text-anchor="end">Engenharia de Dados &amp; BI</text>
+
+  <!-- barra mint base -->
+  <rect x="0" y="624" width="1200" height="6" fill="url(#mintline)"/>
+</svg>
